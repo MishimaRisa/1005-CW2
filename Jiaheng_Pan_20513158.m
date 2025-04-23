@@ -1,23 +1,29 @@
 % Name: Jiaheng Pan 
 % Email: ssyjp5@nottingham.edu.cn
-
+%% PRELIMINARY TASK - ARDUINO AND GIT INSTALLATION [10 MARKS]
+% Establish Arduino connection
 clear a
 a = arduino('COM5', 'Uno');
+
+% Call main temperature monitoring and prediction function
 temp_monitor(a);
 
-function temp_monitor(a)
 
-% Duration for data collection in seconds
-duration = 600;
+%% TASK 1, 2, 3 - FUNCTION IMPLEMENTATION
+function temp_monitor(a)
+% Tasks Covered:
+% - Task 1: Data acquisition, plotting, and logging
+% - Task 2: LED display logic based on temperature
+% - Task 3: Temperature trend prediction and alerting
+
+%% Initialization (Task 1 setup)
+duration = 600; % total acquisition time in seconds
 timeData = [];
 tempData = [];
 tStart = datetime('now');
-
-% Open log file
 logFile = fopen('cabin_temperature.txt', 'w');
 fprintf(logFile, 'Time(s)\tTemperature(C)\n');
 
-% Initialize plot
 figure;
 h = plot(NaN, NaN, '-o', 'LineWidth', 2);
 xlabel('Time (s)');
@@ -25,23 +31,20 @@ ylabel('Temperature (°C)');
 title('Cabin Temperature Monitoring');
 ylim([10 35]);
 xlim([0 60]);
-grid on;
-hold on;
+grid on; hold on;
 
+%% Main loop
 while true
-    % Current time
     tNow = datetime('now');
     t = seconds(tNow - tStart);
 
-    % Read analog voltage and convert to temperature
+    % Read temperature
     V = readVoltage(a, 'A0');
     T = (V - 0.5) * 100;
 
-    % Store data
+    % Store and log
     timeData(end+1) = t;
     tempData(end+1) = T;
-
-    % Write to log file
     fprintf(logFile, '%.2f\t%.2f\n', t, T);
 
     % Update plot
@@ -49,40 +52,36 @@ while true
     xlim([max(0, t-60) t+5]);
     drawnow;
 
-    % ===== Task 3: Temperature Prediction and Slope Calculation =====
-    slope = 0;  % Default temperature rate
+    %% TASK 3 - TEMPERATURE PREDICTION
+    slope = 0; 
     predictedTemp = T;
-
     if length(timeData) >= 10
-        % Use last 30 seconds of data to fit a linear model
         idx = timeData > (t - 30);
         recentT = timeData(idx);
         recentY = tempData(idx);
         if length(recentT) >= 2
-            p = polyfit(recentT, recentY, 1);  % Linear fit
-            slope = p(1) * 60;  % Convert to °C/min
+            p = polyfit(recentT, recentY, 1); 
+            slope = p(1) * 60; % °C/min
             predictedTemp = T + slope * 5;
         end
     end
+    fprintf('Current temperature: %.2f°C | Predicted in 5 min: %.2f°C | Rate: %.2f°C/min\n', ...
+        T, predictedTemp, slope);
 
-    % Display prediction info
-    fprintf('Current temperature: %.2f°C | Predicted in 5 min: %.2f°C | Rate: %.2f°C/min\n', T, predictedTemp, slope);
-
-    % ===== Task 3: LED Response Based on Temperature Rate =====
+    %% TASK 2 - LED TEMPERATURE MONITORING DEVICE IMPLEMENTATION
     if slope > 4
         writeDigitalPin(a, 'D7', 0);
         writeDigitalPin(a, 'D8', 0);
-        writeDigitalPin(a, 'D9', 1);  % Red LED ON
+        writeDigitalPin(a, 'D9', 1); % Red
         pause(1);
     elseif slope < -4
         writeDigitalPin(a, 'D7', 0);
-        writeDigitalPin(a, 'D8', 1);  % Yellow LED ON
+        writeDigitalPin(a, 'D8', 1); % Yellow
         writeDigitalPin(a, 'D9', 0);
         pause(1);
     else
-        % Task 2: Standard LED logic
         if T >= 18 && T <= 24
-            writeDigitalPin(a, 'D7', 1);  % Green LED ON
+            writeDigitalPin(a, 'D7', 1); % Green
             writeDigitalPin(a, 'D8', 0);
             writeDigitalPin(a, 'D9', 0);
             pause(1);
@@ -103,12 +102,13 @@ while true
         end
     end
 
-    % Stop condition
+    % Exit condition
     if t >= duration
         break;
     end
 end
 
+%% Summary and file closure
 fclose(logFile);
 fprintf('\n--- Cabin Temperature Summary ---\n');
 fprintf('Max Temp: %.2f °C\n', max(tempData));
